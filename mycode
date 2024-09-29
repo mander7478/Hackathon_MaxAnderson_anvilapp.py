@@ -1,0 +1,489 @@
+from ._anvil_designer import GamePageTemplate
+from anvil import *
+import anvil.tables as tables
+import anvil.tables.query as q
+from anvil.tables import app_tables
+import random
+
+    
+class Game:
+    """Define the game state here"""
+    def __init__(self):
+        self.week = 1
+        self.time = 10
+        self.netWorth = 0
+        self.employees = []
+        self.sanity = 100
+        self.currentMoney = 100000 
+        self.weeklyExpenses = -1200
+        self.disignLevel = 0
+        self.disignToNextTeir = 0
+        self.disignPoints = 0
+        self.productUnits = 0
+        self.totalSales = 0
+        self.endOfWeekText = ""
+        self.thinkingImages = ["https://t3.ftcdn.net/jpg/05/83/45/04/360_F_583450493_s1GaUidBYRp5A7UVyU83fnSQpFkFr6YD.jpg", "https://media.istockphoto.com/id/1186079153/photo/hell-stay-until-he-has-it-all-figured-out.jpg?s=612x612&w=0&k=20&c=OK2bPjppdTpV9JPMmAua9gNMQnY_PObdkzmKWFj8Pmg=", "https://www.shutterstock.com/image-photo/portrait-pensive-african-business-man-260nw-2068648376.jpg", "https://st.depositphotos.com/1007995/2117/i/950/depositphotos_21172485-stock-photo-man-at-desk-thinking-what.jpg", "https://t4.ftcdn.net/jpg/06/21/01/91/360_F_621019167_5dwB6srzRE8Sc70cM44KtYBO3crVYQX8.jpg", "https://st2.depositphotos.com/1054848/8095/i/950/depositphotos_80953014-stock-photo-businessman-thinking-at-work.jpg", "https://c8.alamy.com/comp/2BDAD83/thinking-about-business-thoughtful-young-afro-american-man-in-glasses-looking-at-computer-screen-while-sitting-at-his-working-place-at-home-working-remotely-freelance-home-office-workplace-2BDAD83.jpg", "https://as1.ftcdn.net/v2/jpg/01/38/57/90/1000_F_138579080_Ww9bB5KDFEDb5q4m4ujnn7uTV5Xb7ILT.jpg", "https://st2.depositphotos.com/3258807/11113/i/950/depositphotos_111132784-stock-photo-man-thinking-in-front-of.jpg"]
+        self.firstNames = ["James", "Olivia", "Liam", "Emma", "Noah", "Sophia", "Elijah", "Isabella", "Lucas", "Mia", "Mason", "Ava", "Ethan", "Charlotte", "Logan", "Amelia", "Aiden", "Harper", "Jackson", "Evelyn"]
+        self.lastNames = ["Smith", "Johnson", "Brown", "Taylor", "Anderson", "Thomas", "Jackson", "White", "Harris", "Martin", "Thompson", "Garcia", "Martinez", "Robinson", "Clark", "Rodriguez", "Lewis",  "Lee", "Walker", "Hall"]
+        self.skills = ["moderately", "greatly", "insanely"]
+        self.jobs = ["Laborer", "Engineer", "Salesperson"]
+        
+    
+    def endOfWeek(self):
+      self.week += 1
+      self.sanity += ((self.time - 2) * 3)
+      self.currentMoney += self.weeklyExpenses
+      skill_modifiers = {"moderately": 0.7, "greatly": 1.1,"insanely": 1.5}
+      sales_people_count = 0
+      sales_people_worth = 0
+      laborers_count = 0
+      laborers_worth = 0
+      engineers_count = 0
+      engineers_worth = 0
+      for employee in self.employees:
+        name, role, salary, skill_text = employee
+        skill_multiplier = skill_modifiers.get(skill_text)
+        worth = skill_multiplier
+        if role == "Salesperson":
+            sales_people_count += 1
+            sales_people_worth += worth
+        elif role == "Laborer":
+            laborers_count += 1
+            laborers_worth += worth
+        elif role == "Engineer":
+            engineers_count += 1
+            engineers_worth += worth
+      sales_people_average = round(sales_people_worth / sales_people_count, 2) if sales_people_count > 0 else 0
+      laborers_average = round(laborers_worth / laborers_count, 2) if laborers_count > 0 else 0
+      engineers_average = round(engineers_worth / engineers_count, 2) if engineers_count > 0 else 0
+      
+      # Building the end of week summary
+      self.endOfWeekText = (
+      f"\n\nYou have {engineers_count} Engineers with an average skill level of {engineers_average}.\n"
+      f"You have {laborers_count} Laborers with an average skill level of {laborers_average}.\n"
+      f"You have {sales_people_count} Salespeople with an average skill level of {sales_people_average}.\n")
+      self.designToNextTeir = ((self.disignLevel + 1) * (self.disignLevel + 1)) + 1
+      self.disignPoints += engineers_worth
+      if self.disignPoints >= self.designToNextTeir:
+        self.disignPoints -= self.designToNextTeir
+        self.disignLevel += 1
+        self.designToNextTeir = ((self.disignLevel + 1) * (self.disignLevel + 1)) + 1
+        self.endOfWeekText += "Disign level up! We're throwing the old products out!\n"
+        self.productUnits = 0
+      self.endOfWeekText += f"Disign level {self.disignLevel}, {self.disignPoints} out of {self.designToNextTeir} points to next teir.\n"
+      self.productUnits += laborers_worth
+      self.endOfWeekText += f"{laborers_worth} products were made and put into inventory.\n"
+      inventory_sold = min(self.productUnits, sales_people_worth)
+      self.productUnits -= inventory_sold
+      moneyMade = (((self.disignLevel + 1) * (self.disignLevel + 1)) * 100) * inventory_sold
+      self.totalSales += moneyMade
+      self.netWorth += moneyMade
+      self.currentMoney += moneyMade
+      self.endOfWeekText += f"${round(moneyMade,0)} was made in sales this week by selling {inventory_sold} products. \n"
+      self.endOfWeekText += f"The weekly expenses amount to ${self.weeklyExpenses}. (1)"
+        
+
+    def completedTask(self, page):
+      page.option = -1
+      page.enableButtons(1)
+      self.time -= round((1 * (2 - (self.sanity / 100)) * (2 - (self.sanity / 100))), 2)
+      if self.time <= 0:
+        self.endOfWeek()
+        if self.currentMoney <= 0:
+            page.level = 100
+        else:    
+          self.time = 10
+          page.level = 3
+      else:
+        page.level = 2
+
+    def playGame(self, page):
+        # Start the game by displaying initial message
+        page.output("Press 1 to start navigate your journey. (The first couple images take a second to load) (1)")  # Initial prompt
+        page.enableButtons(1)  # Enable the first button
+
+    def handle_player_choice(self, page):
+        """Handle the player's choice after a button is pressed."""
+        if page.level == 0:
+          page.output("You are an unemployed loser. As you sit and think about your life you ask yourself: What am doing here? Why have I tried so hard? (1)")
+          page.changeImage("https://static.vecteezy.com/system/resources/previews/034/048/717/non_2x/unemployed-people-crisis-despair-and-stress-people-compression-in-office-feel-stressful-can-t-make-decision-jobless-or-depression-situation-stress-cause-mental-problems-stress-and-jobless-concept-photo.jpg")  
+          page.option = -1  # Reset option to wait for the next input
+          page.enableButtons(1)  # Enable buttons again to continue
+          page.level = .1
+          return
+        if page.level == 0.1:
+          page.output("Everything is falling apart... You think back to your older self, full of aspiration. How disapointed would he be if he saw you now.")
+          page.changeImage("https://rootedministry.com/wp-content/uploads/pexels-inzmam-khan-1134204.jpg")
+          page.option = -1
+          page.enableButtons(1)
+          page.level = .2
+          return
+        if page.level == 0.2:
+          page.output("You stand up, feeling the worst youve ever felt (1).")
+          page.changeImage("https://media.istockphoto.com/id/177698253/photo/silhouette-of-man-in-a-suit-looking-down-at-his-feet.jpg?s=612x612&w=0&k=20&c=PGgmq4maBu-NUqVu-q2J7zbtJoGg6nkW1RuPho_r4-c=")
+          page.option = -1 
+          page.enableButtons(1)
+          page.level = .3
+          return
+        if page.level == 0.3:
+          page.output("BAAM! (1).")
+          page.changeImage("https://c8.alamy.com/comp/CPBJ08/a-view-of-a-man-with-robbery-mask-holding-a-gun-isolated-against-white-CPBJ08.jpg")
+          page.option = -1 
+          page.enableButtons(1)
+          page.level = .4
+          return
+        if page.level == 0.4:
+          page.output("AHHH!!!... ahhh............. (1)")
+          page.changeImage("https://st3.depositphotos.com/1000975/19394/i/1600/depositphotos_193942786-stock-photo-wounded-businessman-with-blood-stains.jpg")
+          page.option = -1 
+          page.enableButtons(1)
+          page.level = .5
+          return
+        if page.level == 0.5:
+          page.output("You black out. (1)")
+          page.changeImage("https://media.istockphoto.com/id/501787074/photo/effects-of-heavy-drinking.jpg?s=612x612&w=0&k=20&c=7vdw5fywVIlkqjWfRBuBPW-fMd5yg8-oHrc1ZbQJZSc=")
+          page.option = -1 
+          page.enableButtons(1)
+          page.level = .6
+          return
+        if page.level == 0.6:
+          page.output("You wake up in a hospital bed. Barely remembering how you got here. (1)")
+          page.changeImage("https://thumbs.dreamstime.com/b/young-american-man-lying-bed-hospital-room-sick-ill-giving-thumbs-up-smiling-happy-positive-fighting-against-56792806.jpg")
+          page.option = -1 
+          page.enableButtons(1)
+          page.level = .7
+          return
+        if page.level == 0.7:
+          page.output("From your encounter with death you realize that you shouldnt throw your life away so fast. (1)")
+          page.changeImage("https://media.istockphoto.com/id/485736478/photo/when-life-smiles-at-you-smile-back.jpg?s=612x612&w=0&k=20&c=LcU-gJ1NJ27JxP-d3LfL0D2BdRmEIsmxgF29HAnTq6A=")
+          page.option = -1 
+          page.enableButtons(1)
+          page.level = .8
+          return
+        if page.level == 0.8:
+          page.output("Now that you think about it you always wanted to give back to you community ever since you were little. (1)")
+          page.changeImage("https://thumbs.dreamstime.com/b/portratit-smiling-optimistic-person-white-shirt-giving-two-thumbs-up-over-blue-background-successful-happy-businessman-doing-244049980.jpg")
+          page.option = -1 
+          page.enableButtons(1)
+          page.level = .11
+          return
+        if page.level == 0.11:
+          page.output("You also remeber all the fun you had hugging trees in your youth! (1)")
+          page.changeImage("https://media.istockphoto.com/id/1277598336/photo/little-cute-boy-is-embracing-a-tree-in-the-forest.jpg?s=612x612&w=is&k=20&c=okzy-o5Q6nTcep3qRDyPTcakb_oatRJlVMfVo8qSVC8=")
+          page.option = -1 
+          page.enableButtons(1)
+          page.level = .12
+          return
+        if page.level == 0.12:
+          page.output("What better way to help out the community than to help the planet! (1)")
+          page.changeImage("https://c8.alamy.com/comp/2R0WWX2/world-on-a-human-hand-on-a-background-blur-sea-and-sky-with-light-and-bokeh-concept-help-preserve-the-world-together-elements-of-this-image-furnis-2R0WWX2.jpg")
+          page.option = -1 
+          page.enableButtons(1)
+          page.level = .13
+          return
+        if page.level == 0.13:
+          page.output("\"I should make a green energy start up company\"! (1)")
+          page.changeImage("https://us.123rf.com/450wm/pitinan/pitinan2207/pitinan220701448/188935769-green-business-transformation-for-environment-saving-and-esg-business-concept-businessman-using.jpg?ver=6")
+          page.option = -1 
+          page.enableButtons(1)
+          page.level = .14
+          return
+        if page.level == 0.14:
+          page.output("With a small loan of $100,000 you do just that. (1)")
+          page.changeImage("https://thumbs.dreamstime.com/z/indian-business-man-2-thumbs-up-5955602.jpg?ct=jpeg")
+          page.option = -1 
+          page.enableButtons(1)
+          page.level = 1
+          return
+        if page.level == 1:
+          page.output("You have to start somewhere... so you go on redit and see what your options are... some really smart sounding guy said you should start renting out an office space ASAP, such intellegent advice was the exact thing that you were looking for! (1)")
+          page.changeImage("https://c8.alamy.com/comp/2BC2KRN/surprised-black-man-checking-mobile-phone-amazing-news-standing-in-a-park-2BC2KRN.jpg")
+          page.option = -1 
+          page.enableButtons(1)
+          page.level = 1.1
+          return
+        if page.level == 1.1:
+          page.output("You find that running a startup company is super hard. You only have 1 day out of each week where you can choose what you want to do. Better make the most out of every waking hour! (1)")
+          page.changeImage("https://st3.depositphotos.com/3489481/13360/i/450/depositphotos_133605226-stock-photo-stressed-man-sitting-at-his.jpg")
+          page.option = -1 
+          page.enableButtons(1)
+          page.level = 2
+          return
+        if page.level == 2:
+          if self.netWorth >= 500000:
+            page.output("Your company has grown to hights you never thought were possible. You've made such a huge impact on the world and climate change that you won a nobel prize! You've made it.")
+            page.changeImage("https://img.etimg.com/thumb/width-1200,height-900,imgsize-54790,resizemode-75,msid-93949244/markets/stocks/news/stocks-that-analysts-like-as-d-street-enters-september-do-you-own-them.jpg")
+            page.enableButtons(0)
+            return
+          page.output(f"It's week {self.week}! You have {round(self.time, 2)} hours left in the day, what do you want to do:\n1. Hire a new employee\n2. Fire an employee\n3. Check your employees\n4. Help think of some product ideas\n5. Help manufacture products\n6. Help sell your product.\n7. Check your economy statistics\n8. Reflect on your current health\n9. End the day early")
+          page.changeImage(self.thinkingImages[random.randint(0, len(self.thinkingImages) - 1)])
+          page.option = -1 
+          page.enableButtons(9)
+          page.level = 2.1
+          return
+        if page.level == 2.1:
+          if page.option == 1:
+              self.firstName = self.firstNames[random.randint(0, len(self.firstNames) - 1)]
+              self.lastName = self.lastNames[random.randint(0, len(self.lastNames) - 1)]
+              self.job = self.jobs[random.randint(0, len(self.jobs) - 1)]
+              randomNum = random.randint(0, 100)
+              if randomNum >= 80:
+                self.skill = self.skills[2]
+              elif randomNum >= 50:
+                self.skill = self.skills[1]
+              else:
+                self.skill = self.skills[0]
+              self.money = random.randint(1000,2000)
+              page.output(f"Youre looking for hires... and you found someone interested in working for you! Their name is {self.firstName} {self.lastName} and their job title is {self.job}. They seem to be {self.skill} skilled and are asking for ${self.money} a week. Do you want to hire them?\n\n1. Yes\n2. No")
+              # Additional logic for Option 1
+              page.changeImage("https://st3.depositphotos.com/12536728/16141/i/1600/depositphotos_161414946-stock-photo-job-application-interview-executive-manager.jpg")
+              page.option = -1  # Reset option to wait for the next input
+              page.enableButtons(2)
+              page.level = 2.11
+              return
+      
+          elif page.option == 2:
+              if len(self.employees) == 0:
+                page.output("You go to check the books... then you realize that no one works for you. \"Im losing it.\" (1)")
+                page.changeImage("https://www.shutterstock.com/image-photo/photo-tired-young-businessman-sitting-260nw-568319920.jpg")
+              else:
+                  if len(self.employees) >= 10:
+                    total = 10
+                    employee_info = "Only ten poeple are in the office today and it goes againsnt your morals to fire someone by email. "
+                  else:
+                    total = len(self.employees)
+                    employee_info = ""
+                  self.random_indexes = random.sample(range(len(self.employees)), total)
+                  self.random_values = []
+                  for i in self.random_indexes:
+                      self.random_values.append(self.employees[i])
+                  employee_info += "Who do you want fired? Skill level: Moderate = .7, Great = 1.1, Insane = 1.5 \nEMPLOYEES:"
+                  i = 0
+                  for employee in self.random_values:
+                    i += 1
+                    name, job, salary, skill = employee
+                    employee_info += f"\n{i%10}. Name: {name}, Job: {job}, Weekly Salary: {salary}, Skill level: {skill} skilled"
+                  employee_info += "\n* to quit"
+                  page.output(employee_info)
+                  page.changeImage("https://c8.alamy.com/zooms/9/a9832bc862574ab8b7c16640d179361c/k8ag0t.jpg")
+                  page.enableButtons(i)
+                  page.button_star.enabled = True
+                  page.level = 2.12
+                  return
+          elif page.option == 3:
+              employee_info = "EMPLOYEES:"
+              i = 0
+              for employee in self.employees:
+                i += 1
+                name, job, salary, skill = employee
+                employee_info += f"\n{i}. Name: {name}, Job: {job}, Weekly Salary: {salary}, Skill level: {skill} skilled"
+              page.output(employee_info + " (1)")
+              page.changeImage("https://c8.alamy.com/comp/2F7PAKN/clever-and-concentrated-african-american-guy-is-doing-paperwork-a-man-looking-through-workpaper-sitting-at-the-desk-with-a-laptop-in-office-a-man-checking-report-collate-data-2F7PAKN.jpg")
+          elif page.option == 4:
+              textOutput = "You start to think of some innovative ideas.\n\n"
+              self.designToNextTeir = ((self.disignLevel + 1) * (self.disignLevel + 1)) + 1
+              self.disignPoints += 1
+              if self.disignPoints >= self.designToNextTeir:
+                self.disignPoints -= self.designToNextTeir
+                self.disignLevel += 1
+                self.designToNextTeir = ((self.disignLevel + 1) * (self.disignLevel + 1)) + 1
+                textOutput += "Disign level up! We're throwing the old products out!\n"
+                self.productUnits = 0
+              textOutput += f"Disign level {self.disignLevel}, {self.disignPoints} out of {self.designToNextTeir} points to next teir. (1)\n"
+              page.output(textOutput)
+              page.changeImage("https://as2.ftcdn.net/v2/jpg/02/39/95/47/1000_F_239954796_1m3fAy1ihmDCBBFuwRY28CEh0gjjI1YA.jpg")
+      
+          elif page.option == 5:
+              self.productUnits += 1
+              page.output("You put on your gloves and got to work. \nYou made a product and you put it into inventory")
+              page.changeImage("https://www.shutterstock.com/image-photo/construction-worker-putting-protective-glove-260nw-2504672227.jpg")
+      
+          elif page.option == 6:
+              inventory_sold = min(self.productUnits, 1)
+              self.productUnits -= inventory_sold
+              moneyMade = (((self.disignLevel + 1) * (self.disignLevel + 1)) * 100) * inventory_sold
+              self.totalSales += moneyMade
+              self.netWorth += moneyMade
+              self.currentMoney += moneyMade
+              page.output(f"You make a phone call.\nYou sold {inventory_sold} product, you made ${moneyMade}. (1)")
+              page.changeImage("https://c8.alamy.com/comp/E7W345/businessman-buying-selling-something-and-giving-dollars-and-holding-E7W345.jpg")
+      
+          elif page.option == 7:
+              page.output(f"Company Stats:\nNet worth: ${self.netWorth} GOAL: $500000\nWeekly expenses: ${self.weeklyExpenses}\nCurrent money: ${self.currentMoney}\nTotal sales: ${self.totalSales}\nProduct disign level: {self.disignLevel}, Each product is worth: ${(((self.disignLevel + 1) * (self.disignLevel + 1)) * 100)}\nProduct units in inventory {self.productUnits}  (1)")
+              page.changeImage("https://c8.alamy.com/comp/2G0XGKY/predictive-data-analytics-business-man-looking-at-statistics-2G0XGKY.jpg")
+          elif page.option == 8:
+              page.output(f"Your sanity is at {self.sanity}%\nYou work at {round(100 / ((2 - (self.sanity / 100)) * (2 - (self.sanity / 100))),0)}% efficiency\nYour sanity is effected by how many hours you work. (1)")
+              page.changeImage("https://www.shutterstock.com/shutterstock/photos/380750602/display_1500/stock-photo-man-looking-at-his-reflection-380750602.jpg")
+          elif page.option == 9:
+              self.endOfWeek()
+              page.output(f"Taking a break from work is just what you needed. {self.endOfWeekText}")
+              page.changeImage("https://thumbs.dreamstime.com/z/happy-business-man-looking-watch-waiting-his-colleague-bridge-urbane-happy-business-man-looking-watch-waiting-his-315929691.jpg")
+              page.option = -1
+              page.enableButtons(1)
+              self.time = 10
+              if self.currentMoney <= 0:
+                page.level = 100
+              else:
+                page.level = 2
+              return
+          #at the end of an action
+          self.completedTask(page)
+          return
+        if page.level == 2.11:
+          if page.option == 1:
+            page.output("You decide that they would make a good addition to your team. \"Youre hired!\" (1)")
+            page.changeImage("https://media.istockphoto.com/id/1384110533/photo/asian-male-director-is-interviewing-to-recruit-new-employees.jpg?s=612x612&w=0&k=20&c=rR1-wkWClaIfcH7vwut8L2AXK3LML2RLQ-xZ60ZrwEE=")
+            employee = [f"{self.firstName} {self.lastName}", self.job, self.money, self.skill]
+            self.weeklyExpenses -= self.money
+            self.netWorth += random.randint(3000,3500)
+            self.employees.append(employee)
+            page.option = -1 
+            page.enableButtons(1)
+          elif page.option == 2:
+            page.output("You dont think they're suitable for your company and have to turn them away. (1)")
+            page.changeImage("https://media.gettyimages.com/id/138341312/photo/job-application-rejected.jpg?s=612x612&w=gi&k=20&c=x54RpYysLogUY-DMu4LUD6brgjcs_aTv5GWb8D4O5F4=")
+            page.option = -1 
+            page.enableButtons(1)
+          self.completedTask(page)
+          return
+        if page.level == 2.12:
+          if page.option != "*":
+            self.netWorth -= 3000
+            self.employees.remove(self.random_values[page.option - 1])
+            self.weeklyExpenses += self.random_values[page.option - 1][2]
+            page.output(f"Bye bye {self.random_values[page.option - 1][0]}, its cool though, no one in the office really liked them anyway. (1)")
+            page.changeImage("https://media.istockphoto.com/id/1296687900/photo/video-conference-online-business-call.jpg?s=612x612&w=0&k=20&c=IZulpx-kgYqx18vtn0-sRBdaY7EmlXR8RLwg4YbMOK4=")
+          else:
+            page.output("You decide to not fire anyone... for now. (1)")
+            page.changeImage("https://st.depositphotos.com/1158045/4705/i/950/depositphotos_47057693-stock-photo-suspicious-businessman.jpg")
+          self.completedTask(page)
+          return
+        if page.level == 3:
+          page.output(f"Its getting late and youre really tired after a long week. Its time to go home. (1){self.endOfWeekText}")
+          page.changeImage("https://www.shutterstock.com/image-photo/stressed-tired-business-man-suffering-260nw-2190357945.jpg")
+          page.option = -1 
+          page.enableButtons(1)
+          page.level = 2
+          return
+        if page.level == 100:
+          page.output("All your funds slipped through your fingers, you tried to make back the money you lost but you couldnt make ends meet. One thing led to another and now youre filing for bankrupcy. This is the real end.")
+          page.changeImage("https://www.shutterstock.com/shutterstock/photos/234959011/display_1500/stock-photo-portrait-of-young-depressed-man-in-pain-234959011.jpg")
+          page.disable_all_buttons()
+          return
+      
+          
+
+        
+
+class GamePage(GamePageTemplate):
+    def __init__(self, **properties):
+        self.init_components(**properties)
+
+        # Initialize other components
+        self.background = "black"
+        self.image_1.source = "https://media.istockphoto.com/id/1411481752/vector/web-banner-with-phrase-start-new-game-sci-fi-screen-background-with-neon-design.jpg?s=612x612&w=0&k=20&c=-TZlvqIX8RSVvEs2PKQzpi7p-e-Rb_JDoI-d5njX4ok="
+        self.text_area_1.text = "Press 1 to begin. (The first couple images take a second to load)"  # Initial message
+        # Instantiate the Game class to track game state
+        self.game = Game()  # Create a new Game instance
+        # Define the starting option
+        self.level = 0
+        self.option = -1
+        self.game.playGame(self)  # Start the game
+        
+
+    def changeImage(self, image):
+        """Change the image on the page"""
+        self.image_1.source = image
+
+    def output(self, text):
+        self.text_area_1.text = text  # Set text
+
+    # Define button click handlers for each button
+    def button_1_click(self, **event_args):
+        """Option 1 button click"""
+        self.option = 1
+        self.game.handle_player_choice(self)  # Call game logic
+
+    def button_2_click(self, **event_args):
+        """Option 2 button click"""
+        self.option = 2
+        self.game.handle_player_choice(self)
+
+    def button_3_click(self, **event_args):
+        """Option 3 button click"""
+        self.option = 3
+        self.game.handle_player_choice(self)
+
+    def button_4_click(self, **event_args):
+        """Option 4 button click"""
+        self.option = 4
+        self.game.handle_player_choice(self)
+
+    def button_5_click(self, **event_args):
+        """Option 5 button click"""
+        self.option = 5
+        self.game.handle_player_choice(self)
+
+    def button_6_click(self, **event_args):
+        """Option 6 button click"""
+        self.option = 6
+        self.game.handle_player_choice(self)
+
+    def button_7_click(self, **event_args):
+        """Option 7 button click"""
+        self.option = 7
+        self.game.handle_player_choice(self)
+
+    def button_8_click(self, **event_args):
+        """Option 8 button click"""
+        self.option = 8
+        self.game.handle_player_choice(self)
+
+    def button_9_click(self, **event_args):
+        """Option 9 button click"""
+        self.option = 9
+        self.game.handle_player_choice(self)
+
+    def button_star_click(self, **event_args):
+        """Star button click"""
+        self.option = "*"
+        self.game.handle_player_choice(self)
+
+    def button_10_click(self, **event_args):
+        """Option 0 button click"""
+        self.option = 10
+        self.game.handle_player_choice(self)
+
+    def button_hash_click(self, **event_args):
+        """Hash button click"""
+        self.option = "#"
+        self.game.handle_player_choice(self)
+
+    def enableButtons(self, possibilties):
+        self.option = -1
+        self.disable_all_buttons()
+        for i in range(possibilties):
+            button = getattr(self, f'button_{i + 1}', None)  # Dynamically get the button
+            if button:  # Check if the button exists
+                button.enabled = True
+
+    def disable_all_buttons(self):
+      """Disable all the buttons on the page"""
+      self.button_1.enabled = False
+      self.button_2.enabled = False
+      self.button_3.enabled = False
+      self.button_4.enabled = False
+      self.button_5.enabled = False
+      self.button_6.enabled = False
+      self.button_7.enabled = False
+      self.button_8.enabled = False
+      self.button_9.enabled = False
+      self.button_star.enabled = False
+      self.button_10.enabled = False
+      self.button_hash.enabled = False
+
+   
+
+
+
+  
